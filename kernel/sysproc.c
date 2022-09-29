@@ -95,3 +95,20 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Add a sys_trace() function
+// output pattern-> PID: sys_$name(arg0) -> return_value
+// demo example [ 3: sys_read(3) -> 1023 ]
+
+uint64
+sys_trace(void)
+{
+  int mask;
+  // char st[32];
+  // argstr(1, st, 32);
+  if(argint(0, &mask) < 0) // argint here to get the first argument
+    return -1;
+
+  myproc()->mask = mask;  
+  return 0;
+}
