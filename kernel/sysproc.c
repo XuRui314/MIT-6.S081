@@ -6,6 +6,11 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
+
+uint64 numfreemem();
+uint64 numfreeproc();
+
 
 uint64
 sys_exit(void)
@@ -110,5 +115,36 @@ sys_trace(void)
     return -1;
 
   myproc()->mask = mask;  
+  return 0;
+}
+
+
+uint64
+sys_sysinfo(void)
+{
+/*
+ 1  struct sysinfo {
+ 2    uint64 freemem;   // amount of free memory (bytes)
+ 3    uint64 nproc;     // number of process 
+ 4    uint64 freefd;    // number of free file descriptor
+ 5  };
+*/
+  uint64 user; // user sysinfo结构体的指针
+  struct sysinfo info;
+
+  struct proc *p = myproc();
+
+  if(argaddr(0, &user) < 0)
+    return -1;
+ // 接下来就是填结构体
+  info.freemem  = numfreemem();
+  info.nproc = numfreeproc();
+
+ 
+  
+  // 把填好的结构体传到用户空间
+  if(copyout(p->pagetable, user, (char *)&info, sizeof(info)) < 0)
+    return -1;
+
   return 0;
 }

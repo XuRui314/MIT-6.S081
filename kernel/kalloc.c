@@ -23,6 +23,27 @@ struct {
   struct run *freelist;
 } kmem;
 
+
+uint64
+numfreemem(void){
+  // 计算freelist的长度
+  uint64 len = 0;
+
+  acquire(&kmem.lock);
+  struct run * pointer = kmem.freelist;
+
+  
+  while(pointer){
+
+    pointer = pointer -> next;
+    len ++ ;
+  }
+  release(&kmem.lock);
+
+  return len * PGSIZE;
+}
+
+
 void
 kinit()
 {
