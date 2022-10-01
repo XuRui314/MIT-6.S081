@@ -10,7 +10,7 @@
 
 uint64 numfreemem();
 uint64 numfreeproc();
-
+uint64 numfreefd();
 
 uint64
 sys_exit(void)
@@ -139,6 +139,7 @@ sys_sysinfo(void)
  // 接下来就是填结构体
   info.freemem  = numfreemem();
   info.nproc = numfreeproc();
+  info.freefd = numfreefd();
 
  
   

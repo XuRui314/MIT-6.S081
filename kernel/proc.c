@@ -25,7 +25,7 @@ uint64
 numfreeproc(void){
   uint64 num = 0;
   for(int i = 0; i < NPROC; i++){
-    if(proc[i].state != UNUSED ){
+    if(proc[i].state == UNUSED ){
       num++;
     }
   }
@@ -33,6 +33,23 @@ numfreeproc(void){
   return num;
 
 }
+
+uint64
+numfreefd(void){
+  uint64 num = 0;
+  for(int i = 0; i < NPROC; i++){
+    for(int j = 0; j < NOFILE; j++){
+        if(proc[i].ofile[j] == 0 ){
+            num++;
+    }
+    }
+    
+  }
+
+  return num;
+
+}
+
 
 
 // initialize the proc table at boot time.

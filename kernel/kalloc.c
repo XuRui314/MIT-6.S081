@@ -24,6 +24,8 @@ struct {
 } kmem;
 
 
+
+
 uint64
 numfreemem(void){
   // 计算freelist的长度
