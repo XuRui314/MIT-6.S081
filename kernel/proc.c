@@ -38,6 +38,7 @@ procinit(void)
       if(pa == 0)
         panic("kalloc");
       uint64 va = KSTACK((int) (p - proc));
+      p->kstack_pa = (uint64)pa;
       kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
       p->kstack = va;
   }
@@ -121,6 +122,20 @@ found:
     return 0;
   }
 
+  // An empty user kernel page table.
+  p->k_pagetable = kpvminit();
+  if(p->k_pagetable == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  // 映射一下，物理地址到xv6指令运行用到的虚拟地址
+
+  uvmmap(p->k_pagetable, p->kstack, kvmpa(p->kstack), PGSIZE, PTE_R | PTE_W);
+
+
+  // kvmmap( va, p->kstack_pa, PGSIZE, PTE_R | PTE_W);
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -129,6 +144,24 @@ found:
 
   return p;
 }
+
+void 
+k_freewalk(pagetable_t pagetable){
+    // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      k_freewalk((pagetable_t)child);
+      pagetable[i] = 0;  
+    } else if(pte & PTE_V){
+      pagetable[i] = 0; 
+    }
+  }
+  kfree((void*)pagetable);
+}
+
 
 // free a proc structure and the data hanging from it,
 // including user pages.
@@ -139,8 +172,19 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+   
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+
+
+    
+  if(p->k_pagetable)
+    k_freewalk(p->k_pagetable);
+    
+
+    
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -473,7 +517,12 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        w_satp(MAKE_SATP(p->k_pagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
+
+        kvminithart();
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
