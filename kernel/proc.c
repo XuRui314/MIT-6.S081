@@ -273,6 +273,8 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  ukvmcopy(p->pagetable, p->k_pagetable, 0, p->sz);
+
 
   release(&p->lock);
 }
@@ -287,11 +289,24 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
+    // prevent process from growing to PLIC address - lab3-3
+    if(sz + n > PLIC){
+      return -1;
+    }
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
+      return -1;
+    }
+    // copy the increase user page table to kernel page table - lab3-3
+    if(ukvmcopy(p->pagetable, p->k_pagetable, p->sz, sz) < 0){
       return -1;
     }
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
+    // free process's kernel page table without free physical memory - lab3-3
+    if (PGROUNDUP(sz) < PGROUNDUP(p->sz)) {
+      uvmunmap(p->k_pagetable, PGROUNDUP(sz),
+               (PGROUNDUP(p->sz) - PGROUNDUP(sz)) / PGSIZE, 0);
+    }
   }
   p->sz = sz;
   return 0;
@@ -318,6 +333,12 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  if(ukvmcopy(np->pagetable, np->k_pagetable, 0, np->sz) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
 
   np->parent = p;
 
